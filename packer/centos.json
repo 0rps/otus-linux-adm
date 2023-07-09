@@ -16,11 +16,11 @@
       ],
       "guest_os_type": "RedHat_64",
       "http_directory": "http",
-      "iso_checksum": "74fd84f0d333c9b5cc59efb74307cdceb1a99d816eea6ca2207edf3fe8ce3552",
-      "iso_url": "http://mirror.linux-ia64.org/centos/8-stream/isos/x86_64/CentOS-Stream-8-20230626.1-x86_64-boot.iso",
+      "iso_checksum": "md5:bad225d7f8e9222b8a01361649608da8",
+      "iso_url": "https://mirror.stream.centos.org/9-stream/BaseOS/x86_64/iso/CentOS-Stream-9-20230704.1-x86_64-boot.iso",
       "name": "{{user `image_name`}}",
       "output_directory": "builds",
-      "shutdown_command": "sudo -S /sbin/halt -h -p",
+      "shutdown_command": "echo '{{user `password`}}' | sudo -S /sbin/halt -h -p",
       "shutdown_timeout": "5m",
       "ssh_password": "{{user `password`}}",
       "ssh_port": 22,
@@ -44,13 +44,6 @@
       "vm_name": "packer-centos-vm"
     }
   ],
-  "post-processors": [
-    {
-      "compression_level": "7",
-      "output": "centos-{{user `artifact_version`}}-kernel-6-x86_64-Minimal.box",
-      "type": "vagrant"
-    }
-  ],
   "provisioners": [
     {
       "execute_command": "echo '{{user `password`}}' | sudo -S -E bash '{{.Path}}'",
@@ -68,10 +61,17 @@
       "type": "shell"
     }
   ],
+  "post-processors": [
+    {
+      "compression_level": "7",
+      "output": "centos-{{user `artifact_version`}}-kernel-6-x86_64-Minimal.box",
+      "type": "vagrant"
+    }
+  ],
   "variables": {
-    "artifact_description": "CentOS Stream 8 with kernel 6.x",
-    "artifact_version": "8",
-    "image_name": "centos-8",
+    "artifact_description": "CentOS Stream 9 with kernel 6.x",
+    "artifact_version": "9",
+    "image_name": "centos-9",
     "password": "vagrant"
   }
 }

@@ -4,7 +4,6 @@
 yum update -y
 yum clean all
 
-
 # Add default "vagrant" user ssh key
 mkdir -pm 700 /home/vagrant/.ssh
 curl -sL https://raw.githubusercontent.com/mitchellh/vagrant/master/keys/vagrant.pub -o /home/vagrant/.ssh/authorized_keys
