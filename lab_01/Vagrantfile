@@ -2,9 +2,9 @@ MACHINES = {
   # Указываем имя ВМ "kernel update"
   :"kernel-update" => {
               #Какой vm box будем использовать
-              :box_name => "centos/8",
+              :box_name => "mogilnikoffalexey/centos9-kernel6",
               #Указываем box_version
-              :box_version => "2011.0",
+              :box_version => "1.0",
               #Указываем количество ядер ВМ
               :cpus => 2,
               #Указываем количество ОЗУ в мегабайтах
