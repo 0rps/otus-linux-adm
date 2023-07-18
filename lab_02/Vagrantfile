@@ -1,0 +1,73 @@
+# -*- mode: ruby -*-
+# vim: set ft=ruby :
+home = ENV['HOME']
+
+
+MACHINES = {
+  :otuslinux => {
+        :box_name => "ubuntu/focal64",
+        :ip_addr => '192.168.56.11',
+	:disks => {
+		:scsi2 => {
+			:dfile => home + '/VirtualBox VMs/otus_02/disks/scsi2.vdi',
+			:size => 250,
+			:port => 2 # There 2 already existing partitions come in Ubuntu
+		},
+		:scsi3 => {
+            :dfile => home + '/VirtualBox VMs/otus_02/disks/scsi3.vdi',
+            :size => 250,
+			:port => 3
+		},
+        :scsi4 => {
+            :dfile => home + '/VirtualBox VMs/otus_02/disks/scsi4.vdi',
+            :size => 250,
+            :port => 4
+        },
+        :scsi5 => {
+            :dfile => home + '/VirtualBox VMs/otus_02/disks/scsi5.vdi',
+            :size => 250,
+            :port => 5
+        },
+        :scsi6 => {
+            :dfile => home + '/VirtualBox VMs/otus_02/disks/scsi6.vdi',
+            :size => 250,
+            :port => 6
+        }
+	}
+  },
+}
+
+Vagrant.configure("2") do |config|
+    MACHINES.each do |boxname, boxconfig|
+        config.vm.define boxname do |box|
+
+            box.vm.box = boxconfig[:box_name]
+            box.vm.host_name = boxname.to_s
+            box.vm.network "private_network", ip: boxconfig[:ip_addr]
+            box.vm.provider :virtualbox do |vb|
+                vb.customize ["modifyvm", :id, "--memory", "1024"]
+                needsController = false
+                boxconfig[:disks].each do |dname, dconf|
+                    unless File.exist?(dconf[:dfile])
+                        vb.customize ['createhd', '--filename', dconf[:dfile], '--variant', 'Fixed', '--size', dconf[:size]]
+                        needsController =  true
+                    end
+                end
+                if needsController == true
+                    # In Ubuntu image root partition is already initialized as SCSI device
+                    boxconfig[:disks].each do |dname, dconf|
+                        vb.customize ['storageattach', :id,  '--storagectl', 'SCSI', '--port', dconf[:port], '--device', 0, '--type', 'hdd', '--medium', dconf[:dfile]]
+                    end
+                end
+            end
+            
+            box.vm.provision "shell", inline: <<-SHELL
+                mkdir -p ~root/.ssh
+                cp ~vagrant/.ssh/auth* ~root/.ssh
+                apt-get install -y mdadm smartmontools hdparm gdisk
+            SHELL
+
+            box.vm.provision "shell", path: "create_raid_10.sh"
+        end
+    end
+end
