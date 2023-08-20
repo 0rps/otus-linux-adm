@@ -1,0 +1,76 @@
+{"builders": [
+    {
+      "boot_command": [
+        "<tab> inst.text inst.ks=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ks.cfg<enter><wait>"
+      ],
+      "boot_wait": "10s",
+      "disk_size": "10240",
+      "export_opts": [
+        "--manifest",
+        "--vsys",
+        "0",
+        "--description",
+        "{{user `artifact_description`}}",
+        "--version",
+        "{{user `artifact_version`}}"
+      ],
+      "guest_os_type": "RedHat_64",
+      "http_directory": "http",
+      "iso_checksum": "sha256:d68f92f41ab008f94bd89ec4e2403920538c19a7b35b731e770ce24d66be129a",
+      "iso_url": "http://centos.mirror.gnc.am/centos/7/isos/x86_64/CentOS-7-x86_64-Minimal-2207-02.iso",
+      "name": "{{user `image_name`}}",
+      "output_directory": "builds",
+      "shutdown_command": "echo '{{user `password`}}' | sudo -S /sbin/halt -h -p",
+      "shutdown_timeout": "5m",
+      "ssh_password": "{{user `password`}}",
+      "ssh_port": 22,
+      "ssh_timeout": "20m",
+      "ssh_username": "vagrant",
+      "type": "virtualbox-iso",
+      "vboxmanage": [
+        [
+          "modifyvm",
+          "{{.Name}}",
+          "--memory",
+          "1024"
+        ],
+        [
+          "modifyvm",
+          "{{.Name}}",
+          "--cpus",
+          "2"
+        ]
+      ],
+      "vm_name": "packer-centos-vm"
+    }
+  ],
+  "provisioners": [
+    {
+      "execute_command": "echo '{{user `password`}}' | sudo -S -E bash '{{.Path}}'",
+      "expect_disconnect": true,
+      "override": {
+        "{{user `image_name`}}": {
+          "scripts": [
+            "scripts/stage-1-install-packages.sh"
+          ]
+        }
+      },
+      "pause_before": "20s",
+      "start_retry_timeout": "1m",
+      "type": "shell"
+    }
+  ],
+  "post-processors": [
+    {
+      "compression_level": "7",
+      "output": "centos-{{user `artifact_version`}}-x86_64-Minimal-Otus.box",
+      "type": "vagrant"
+    }
+  ],
+  "variables": {
+    "artifact_description": "CentOS 7 for Otus labs",
+    "artifact_version": "7",
+    "image_name": "centos-7-otus",
+    "password": "vagrant"
+  }
+}
