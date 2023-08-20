@@ -1,0 +1,13 @@
+# -*- mode: ruby -*- 
+# vi: set ft=ruby : vsa
+Vagrant.configure(2) do |config| 
+    config.vm.box = "generic/centos7"     
+    config.vm.synced_folder ".", "/vagrant", disabled: true
+    config.vm.provider "virtualbox" do |v| 
+        v.memory = 256 
+        v.cpus = 1 
+    end 
+    config.vm.define "grub.boot" do |box| 
+        box.vm.hostname = "grub.boot" 
+    end
+end 
