@@ -257,12 +257,95 @@ nss-softokn
 
 ## 04. Сконфигурировать систему без отдельного раздела с `/boot`, а только с LVM
 
+Примерный план для данной части будет следующим:
+* Скопируем содержимое `boot` раздела в папку `/boot` корневого тома
+* Удалим `/dev/sda1` и за счет него расширим `vg`, где располагается корневой том
+* Добавим необходимые модули загрузки в `grub` и сгенерируем новую конфигурацию
+* Перезагрузим для проверки работы нового расположения `boot` 
 
+Копируем содержимое `boot` раздела на корневой том, удаляем раздел и добавлем его в `vg`
 ```bash
+[root@grub vagrant]# umount /boot
+[root@grub vagrant]# mkdir /mnt/boot && mount /dev/sda1 /mnt/boot
+[root@grub vagrant]# rsync -r /mnt/boot/* /boot
+[root@grub vagrant]# umount /mnt/boot
 
+# добавляем /dev/sda1 в vg
+[root@grub vagrant]# fdisk -l
+
+Disk /dev/sda: 137.4 GB, 137438953472 bytes, 268435456 sectors
+Units = sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disk label type: dos
+Disk identifier: 0x000cdfd1
+
+   Device Boot      Start         End      Blocks   Id  System
+/dev/sda1   *        2048     2099199     1048576   83  Linux
+/dev/sda2         2099200   268435455   133168128   8e  Linux LVM
+
+Disk /dev/mapper/centos_centos7-root: 134.2 GB, 134213533696 bytes, 262135808 sectors
+Units = sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+
+Disk /dev/mapper/centos_centos7-swap: 2147 MB, 2147483648 bytes, 4194304 sectors
+Units = sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+[root@grub vagrant]# vgs
+  VG             #PV #LV #SN Attr   VSize    VFree
+  centos_centos7   1   2   0 wz--n- <127,00g    0 
+[root@grub vagrant]# pcreate --bootloaderareasize 1m /dev/sda1
+bash: pcreate: command not found
+[root@grub vagrant]# pvcreate --bootloaderareasize 1m /dev/sda1
+WARNING: xfs signature detected on /dev/sda1 at offset 0. Wipe it? [y/n]: y
+  Wiping xfs signature on /dev/sda1.
+  Physical volume "/dev/sda1" successfully created.
+
+[root@grub vagrant]# vgextend centos_centos7 /dev/sda1
+  Volume group "centos_centos7" successfully extended
 ```
 
-
+Генерация конфигурации
 ```bash
+# Добавим опцию `lvm` в конец GRUB_CMDLINE_LINUX
+[root@grub vagrant]# sed -i '/GRUB_CMDLINE_LINUX=\"/s/"$/ lvm"/' /etc/default/grub
 
+# Сгенерируем initrd
+[root@grub vagrant]# dracut -v -f
+Executing: /sbin/dracut -v -f
+...
+*** Creating image file ***
+*** Creating image file done ***
+*** Creating initramfs image file '/boot/initramfs-3.10.0-1160.88.1.el7.x86_64.img' done ***
+
+# Сгенерируем grub конфигурацию
+[root@grub vagrant]# grub2-mkconfig -o /boot/grub2/grub.cfg 
+Generating grub configuration file ...
+Found linux image: /boot/vmlinuz-3.10.0-1160.88.1.el7.x86_64
+Found initrd image: /boot/initramfs-3.10.0-1160.88.1.el7.x86_64.img
+Found linux image: /boot/vmlinuz-0-rescue-6518596608d2ee469288a622c13627b9
+Found initrd image: /boot/initramfs-0-rescue-6518596608d2ee469288a622c13627b9.img
+done
+
+# Переустановим grub на /dev/sda
+[root@grub vagrant]# grub2-install -v /dev/sda
+
+# Также необходимо поправить fstab и удалить монтирование уже не существующего /boot раздела
+[root@grub vagrant]#  vim /etc/fstab
+...
+
+# Перезагрузимся
+[root@grub vagrant]# reboot
 ```
+
+Проверка. Для проверки давайте посмотрим на параметры grub, с которыми был загружена система
+```bash
+[vagrant@grub ~]$ cat /proc/cmdline 
+BOOT_IMAGE=/boot/vmlinuz-3.10.0-1160.88.1.el7.x86_64 root=/dev/mapper/centos_centos7-root ro elevator=noop no_timer_check crashkernel=auto rd.lvm.lv=centos_centos7/root rd.lvm.lv=centos_centos7/swap biosdevname=0 net.ifnames=0 rhgb quiet lvm
+```
+
+Видим в конце параметр `lvm`, который был добавлен после переноса grub. Значит загрузка отработала штатно.
