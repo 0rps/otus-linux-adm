@@ -1,0 +1,26 @@
+# -*- mode: ruby -*- 
+# vi: set ft=ruby : vsa
+
+
+Vagrant.configure(2) do |config| 
+  config.vm.box = "ubuntu/jammy64" 
+  config.vm.provider "virtualbox" do |v| 
+      v.memory = 512 
+      v.cpus = 1
+  end 
+
+  config.vm.define "systemd" do |node| 
+    node.vm.hostname = "systemd" 
+
+    config.vm.provision "file", source: "./watchlog_service/", destination: "/tmp/"
+    config.vm.provision "file", source: "./fcgi_service/", destination: "/tmp/"
+    config.vm.provision "file", source: "./apache2/", destination: "/tmp/"
+
+    config.vm.provision "shell", path: "provision.sh"
+    # config.vm.provision "file", source: "./files/ansible.pub", destination: "/tmp/keys/ansible.pub"
+    # config.vm.provision "file", source: "./playbooks", destination: "/tmp/playbooks"
+
+  end
+end 
+
+

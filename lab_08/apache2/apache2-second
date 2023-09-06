@@ -1,0 +1,7 @@
+User www-data
+Group www-data
+IncludeOptional mods/*.load
+
+ErrorLog /var/log/apache2/error-second.log
+PidFile /var/run/apache2-second.pid
+Listen 82
