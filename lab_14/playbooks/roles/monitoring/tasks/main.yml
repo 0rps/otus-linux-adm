@@ -1,0 +1,56 @@
+---
+- name: Prometheus | Install
+  apt:
+    name: prometheus
+    state: latest
+    update_cache: yes
+  notify:
+    - restart_prometheus
+- name: Prometheus | Copy config
+  template:
+    src: templates/prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+  notify: 
+    - restart_prometheus
+- name: Grafana | Install gpg
+  apt:
+    name: gnupg,software-properties-common
+    state: present
+    update_cache: yes
+    cache_valid_time: 3600
+- name: Grafana | Add gpg hey
+  apt_key:
+    url: "https://packages.grafana.com/gpg.key"
+    validate_certs: no
+- name: Grafana | Add repository
+  apt_repository:
+    repo: "deb https://packages.grafana.com/oss/deb stable main"             
+    state: present
+    validate_certs: no
+- name: Grafana | Install grafana
+  apt:
+    name: grafana
+    state: latest
+    update_cache: yes
+    cache_valid_time: 3600
+- name: Grafana | Add datasource
+  template:
+    src: templates/datasource.yaml.j2
+    dest: /etc/grafana/provisioning/datasources/default.yaml
+- name: Grafana | Start service grafana-server
+  systemd:
+    name: grafana-server
+    state: started
+    enabled: yes
+- name: Grafana | Wait for service up
+  uri:
+    url: "http://127.0.0.1:3000"
+    status_code: 200
+  register: __result
+  until: __result.status == 200
+  retries: 120
+  delay: 1
+- name: Grafana | Change admin password for grafana gui
+  shell : "grafana-cli admin reset-admin-password {{ grafana_admin_password }}"
+  register: __command_admin
+  changed_when: __command_admin.rc !=0

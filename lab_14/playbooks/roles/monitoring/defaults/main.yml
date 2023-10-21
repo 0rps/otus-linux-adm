@@ -1,0 +1,3 @@
+---
+datasource_prometheus_host: 127.0.0.1
+grafana_admin_password: 12345678

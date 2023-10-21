@@ -1,0 +1,40 @@
+# -*- mode: ruby -*- 
+# vi: set ft=ruby : vsa
+
+CONTROL_NODE = "192.168.56.10"
+MONITORING_NODE = "192.168.56.11"
+
+
+Vagrant.configure(2) do |config| 
+  config.vm.box = "ubuntu/jammy64" 
+  config.vm.provider "virtualbox" do |v| 
+      v.memory = 512 
+      v.cpus = 1
+  end 
+
+  config.vm.define "monitoring" do |node| 
+    node.vm.network "private_network", ip: MONITORING_NODE,  virtualbox__intnet: "net1" 
+    node.vm.hostname = "monitoring"
+    node.vm.network "forwarded_port", guest: 3000, host: 13000
+    node.vm.provision "shell", path: "provisioner-node.sh"
+  end
+
+  config.vm.define "control" do |node| 
+    node.vm.network "private_network", ip: CONTROL_NODE,  virtualbox__intnet: "net1" 
+    node.vm.hostname = "control" 
+
+    config.vm.provision "file", source: "./files/ansible", destination: "/tmp/keys/ansible"
+    config.vm.provision "file", source: "./files/ansible.pub", destination: "/tmp/keys/ansible.pub"
+    config.vm.provision "file", source: "./playbooks", destination: "/tmp/playbooks"
+
+    node.vm.provision "shell" do |s|
+      args = ["-m", MONITORING_NODE]
+      WORKER_NODES.each do |x|
+        args.append("-w", x[:ip])
+      end
+
+      s.path = "provisioner-control-node.sh"
+      s.args = args
+    end
+  end
+end 

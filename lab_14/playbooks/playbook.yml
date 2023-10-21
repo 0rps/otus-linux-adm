@@ -1,0 +1,6 @@
+---
+- name: Monitoring | Install and configure prometheus and grafana
+  hosts: monitoring
+  become: true
+  roles:
+    - monitoring

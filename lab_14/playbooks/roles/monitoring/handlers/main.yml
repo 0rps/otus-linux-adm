@@ -1,0 +1,11 @@
+---
+- name: restart_prometheus
+  systemd:
+    name: prometheus
+    state: restarted
+    enabled: yes
+- name: restart_grafana
+  systemd:
+    name: grafana
+    state: restarted
+    enabled: yes
