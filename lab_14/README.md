@@ -112,4 +112,4 @@ ansible-playbook playbook.yml
 В качестве дэшборда была загружена следующая конфигурация в виде json: (grafana configuration)[https://grafana.com/grafana/dashboards/15334-server-metrics-cpu-memory-disk-network/]
 
 Отчет:
-![Grafana](./images/grafana.png | width=750)
+![Grafana](./images/grafana.png)
