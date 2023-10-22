@@ -1,0 +1,35 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure(2) do |config|
+  config.vm.box = "centos/7"
+
+  config.vm.provider "virtualbox" do |v|
+	  v.memory = 256
+  end
+
+  config.vm.define "ns01" do |ns01|
+    ns01.vm.network "private_network", ip: "192.168.50.10", virtualbox__intnet: "dns"
+    ns01.vm.hostname = "ns01"
+
+    ns01.vm.provision "shell", inline: <<-SHELL
+      yum -y install epel-release
+      yum -y install ansible.noarch
+      cd /vagrant/provisioning
+      ansible-playbook -i="ns01," -c local ./playbook.yml
+    SHELL
+  end
+
+  config.vm.define "client" do |client|
+    client.vm.network "private_network", ip: "192.168.50.15", virtualbox__intnet: "dns"
+    client.vm.hostname = "client"
+
+    client.vm.provision "shell", inline: <<-SHELL
+      yum -y install epel-release
+      yum -y install ansible.noarch
+      cd /vagrant/provisioning
+      ansible-playbook -i="client," -c local ./playbook.yml
+    SHELL
+  end
+
+end
