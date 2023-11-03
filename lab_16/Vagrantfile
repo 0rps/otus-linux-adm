@@ -1,0 +1,47 @@
+MACHINES = [
+  {
+    :name => "web",
+    :ip => "192.168.57.10",
+    :ports => [80, 20080]
+  },
+  {
+    :name => "log",
+    :ip => "192.168.57.15",
+  },
+  {
+    :name => "loki",
+    :ip => "192.168.57.20",
+    :ports => [3000, 23000]
+  },
+]
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "debian/bookworm64"
+  config.vm.provider "virtualbox" do |v|
+    v.memory = 1024
+    v.cpus = 1
+  end
+
+  MACHINES.each do |opts|
+    boxname = opts[:name]
+    config.vm.define boxname do |box|
+      box.vm.network "private_network", ip: opts[:ip]
+      box.vm.hostname = boxname
+
+      box.vm.provision "shell", inline: <<-SHELL
+        sed -i 's/^# *\(en_US.UTF-8\)/\1/' /etc/locale.gen
+        locale-gen    
+        apt-get update
+        apt-get install ansible -y  
+
+        cd /vagrant/provisioning
+        ansible-playbook -i="#{boxname}," -c local ./playbook.yml
+      SHELL
+
+      if opts.key?(:ports)
+        ports = opts[:ports]
+        box.vm.network "forwarded_port", guest: ports[0], host: ports[1]
+      end 
+    end
+  end
+end

@@ -1,0 +1,22 @@
+service:
+  parsers_file: parsers.conf
+  plugins_file: plugins.conf
+pipeline:
+  inputs:
+    - name: tail
+      path: /var/log/nginx/access.log
+      tag: access_log
+      parser: nginx
+    - name: tail
+      path: /var/log/nginx/error.log
+      tag: error_log
+  outputs:
+    - name: loki
+      host: {{ loki_host }}
+      match: error_log
+      labels: job=fluentbit,log_type=error
+    - name: loki
+      host: {{ loki_host }}
+      match: access_log
+      labels: job=fluentbit,log_type=access
+      label_keys: $code,$method,$path

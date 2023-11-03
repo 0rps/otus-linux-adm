@@ -1,0 +1,221 @@
+---
+- hosts: all
+  become: true
+  tasks:
+  - name: TZ | Copy Moscow tz
+    copy: src=/usr/share/zoneinfo/Europe/Moscow dest=/etc/localtime
+  - name: TZ | Restart chrony
+    systemd:
+      name: chronyd
+      state: restarted
+
+- hosts: loki
+  become: true
+  tasks:
+  - name: Install packages
+    apt:
+      pkg:
+        - curl 
+        - gpg
+      state: latest
+      update_cache: true
+  - name: Grafana & Loki | Add apt key
+    apt_key:
+      url: https://apt.grafana.com/gpg.key 
+      keyring: /etc/apt/keyrings/grafana.gpg
+      state: present 
+  - name: Grafana & Loki | Add apt repository
+    apt_repository:
+      repo: deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main
+      state: present
+  - name: Install packages
+    apt:
+      pkg:
+        - grafana 
+        - loki
+      state: latest
+      update_cache: true
+  - name: copy systemd unit for loki
+    copy:
+      src: files/loki/loki.service
+      dest: /etc/systemd/system/loki.service
+      owner: root
+      group: root
+      mode: 0640
+  - name: Loki | Start service loki
+    systemd:
+      name: loki
+      state: started
+      enabled: yes
+  - name: Grafana | Add datasource
+    copy:
+      src: files/loki/datasource.yaml
+      dest: /etc/grafana/provisioning/datasources/default.yaml
+  - name: Grafana | Start service grafana-server
+    systemd:
+      name: grafana-server
+      state: started
+      enabled: yes
+  - name: Grafana | Wait for service up
+    uri:
+      url: "http://127.0.0.1:3000"
+      status_code: 200
+    register: __result
+    until: __result.status == 200
+    retries: 120
+    delay: 1
+  - name: Grafana | Change admin password for grafana gui
+    shell : "grafana-cli admin reset-admin-password 12345678"
+    register: __command_admin
+    changed_when: __command_admin.rc !=0
+
+
+- hosts: log
+  become: true
+  tasks:
+  - name: Install packages
+    apt:
+      pkg:
+        - auditd
+      state: latest
+      update_cache: true
+  - name: Rsyslog | Copy rsyslog.conf
+    copy:
+      src: files/log/rsyslog.conf
+      dest: /etc/rsyslog.conf
+      owner: root
+      group: root
+      mode: 0640
+  - name: Audit | copy auditd.conf
+    copy:
+      src: files/log/auditd.conf
+      dest: /etc/audit/auditd.conf
+      owner: root
+      group: root
+      mode: 0640
+  - name: Rsyslog | restart rsyslog
+    systemd:
+      name: rsyslog
+      state: restarted
+  - name: Audit | restart auditd
+    systemd:
+      name: auditd
+      state: restarted
+
+- hosts: web
+  become: true
+  vars:
+    log_host: 192.168.57.15
+    loki_host: 192.168.57.20
+  tasks:
+  - name: Install packages
+    apt:
+      pkg:
+        - nginx
+        - auditd
+        - audispd-plugins
+        - curl 
+        - gpg
+      state: latest
+      update_cache: true
+  - name: Audit | Copy audit.rules
+    copy:
+      src: files/web/audit.rules
+      dest: /etc/audit/rules.d/audit.rules
+      owner: root
+      group: root
+      mode: 0640
+
+  - name: Audit | Copy au-remote.conf
+    copy:
+      src: files/web/au-remote.conf
+      dest: /etc/audit/plugins.d/au-remote.conf
+      owner: root
+      group: root
+      mode: 0640
+  
+  - name: Audit | Copy auditd.conf
+    copy:
+      src: files/web/auditd.conf
+      dest: /etc/audit/auditd.conf
+      owner: root
+      group: root
+      mode: 0640
+
+  - name: Audit | Generate audisp-remote.conf
+    template:
+      src: files/web/templates/audisp-remote.conf.j2
+      dest: /etc/audit/audisp-remote.conf
+      owner: root
+      group: root
+      mode: 0644
+
+  - name: Nginx | Break nginx
+    command: mv /var/www/html/index.nginx-debian.html /var/www/html/__index.nginx-debian.html
+  
+  - name: Nginx | Generate nginx.conf
+    template:
+      src: files/web/templates/nginx.conf.j2
+      dest: /etc/nginx/nginx.conf
+      owner: root
+      group: root
+      mode: 0644
+
+  - name: Rsyslog | Restart rsyslog service
+    systemd:
+      name: rsyslog
+      state: restarted
+
+  - name: Audit | Restart auditd service
+    systemd:
+      name: auditd
+      state: restarted
+
+  - name: Nginx | Restart nginx service
+    systemd:
+      name: nginx
+      state: restarted
+
+  - name: Fluent-Bit | Add apt key
+    apt_key:
+      url: https://packages.fluentbit.io/fluentbit.key
+      keyring: /usr/share/keyrings/fluentbit-keyring.gpg
+      state: present 
+  - name: Fluent-Bit | Add apt repository
+    apt_repository:
+      repo: deb [signed-by=/usr/share/keyrings/fluentbit-keyring.gpg] https://packages.fluentbit.io/debian/bookworm bookworm main
+      state: present
+  - name: Install packages
+    apt:
+      pkg:
+        - fluent-bit
+      state: latest
+      update_cache: true
+
+  - name: Fluent-Bit | Generate fluent-bit.conf
+    template:
+      src: files/web/templates/fluent-bit.yaml.j2
+      dest: /etc/fluent-bit/conf.yaml
+      owner: root
+      group: root
+      mode: 0644
+  
+  - name: Fluent-Bit | Copy systemd unit file (fluent-bit)
+    copy:
+      src: files/web/fluent-bit.service
+      dest: /etc/systemd/system/fluent-bit.service
+      owner: root
+      group: root
+      mode: 0644
+
+  - name: Fluent-Bit | Reload systemd
+    systemd:
+      daemon_reload: true
+  
+  - name: Fluent-Bit | Restart fluent-bit service
+    systemd:
+      name: fluent-bit
+      enabled: true
+      state: restarted
+
+
