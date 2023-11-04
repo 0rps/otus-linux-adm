@@ -1,0 +1,11 @@
+[Unit]
+Description=Borg Backup (prune)
+Requires=borg-prune.service
+
+[Timer]
+Unit=borg-prune.service
+OnActiveSec=2min
+OnUnitActiveSec=10min
+
+[Install]
+WantedBy=timers.target

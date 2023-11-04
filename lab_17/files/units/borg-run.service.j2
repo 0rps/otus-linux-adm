@@ -1,0 +1,11 @@
+[Unit]
+Description=Borg Backup
+
+[Service]
+Type=oneshot
+
+Environment=BORG_PASSPHRASE={{ backup_password }}
+Environment=REPO=borg@{{ backup_host }}:/var/backup/
+Environment=BACKUP_TARGET=/etc
+
+ExecStart=/bin/borg create --stats ${REPO}::etc-{now:%%Y-%%m-%%d_%%H:%%M:%%S} ${BACKUP_TARGET}

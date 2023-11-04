@@ -1,0 +1,68 @@
+home = ENV['HOME']
+
+MACHINES = [
+  {
+    :name => "server",
+    :ip => "192.168.57.15",
+    :script => "provisioner_server.sh",
+    :disks => {
+      :scsi2 => {
+        :dfile => home + '/VirtualBox VMs/otus_17/disks/scsi2.vdi',
+        :size => 2000,
+        :port => 2 # There 2 already existing partitions come in Ubuntu
+      },
+    },
+  },
+  {
+    :name => "client",
+    :ip => "192.168.57.10",
+    :script => "provisioner_client.sh",
+  },
+]
+
+def configure_disks(vbprovider, disks)
+  disks.each do |dname, dconf|
+      unless File.exist?(dconf[:dfile])
+        vbprovider.customize ['createhd', '--filename', dconf[:dfile], '--variant', 'Fixed', '--size', dconf[:size]]
+      end
+  end
+    disks.each do |dname, dconf|
+      vbprovider.customize ['storageattach', :id,  '--storagectl', 'SCSI', '--port', dconf[:port], '--device', 0, '--type', 'hdd', '--medium', dconf[:dfile]]
+  end
+end
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/mantic64"
+  config.vm.provider "virtualbox" do |v|
+    v.memory = 1024
+    v.cpus = 1
+  end
+
+  MACHINES.each do |opts|
+    boxname = opts[:name]
+    config.vm.define boxname do |box|
+      box.vm.network "private_network", ip: opts[:ip]
+      box.vm.hostname = boxname
+      
+      box.vm.provision "shell", inline: <<-SHELL
+        apt-get update
+        apt-get install ansible -y  
+
+        cd /vagrant
+        ansible-playbook -i="#{boxname}," -c local ./playbook.yml
+      SHELL
+
+      if opts.key?(:disks)
+        box.vm.provider :virtualbox do |vb|
+          configure_disks(vb, opts[:disks])
+        end
+      end
+
+      if opts.key?(:ports)
+        ports = opts[:ports]
+        box.vm.network "forwarded_port", guest: ports[0], host: ports[1]
+      end 
+    end
+  end
+end
+

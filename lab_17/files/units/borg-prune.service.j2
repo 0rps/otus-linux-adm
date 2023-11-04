@@ -1,0 +1,15 @@
+[Unit]
+Description=Borg Backup
+
+[Service]
+Type=oneshot
+
+Environment=BORG_PASSPHRASE={{ backup_password }}
+Environment=REPO=borg@{{ backup_host }}:/var/backup/
+Environment=BACKUP_TARGET=/etc
+
+ExecStart=/bin/borg prune \
+    --keep-daily  90      \
+    --keep-monthly 12     \
+    --keep-yearly  1       \
+    ${REPO}

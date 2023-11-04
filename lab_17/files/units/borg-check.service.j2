@@ -1,0 +1,11 @@
+[Unit]
+Description=Borg Backup
+
+[Service]
+Type=oneshot
+
+Environment=BORG_PASSPHRASE=Otus1234
+Environment=REPO=borg@192.168.57.15:/var/backup/
+Environment=BACKUP_TARGET=/etc
+
+ExecStart=/bin/borg check ${REPO}

@@ -1,0 +1,195 @@
+---
+- hosts: all
+  become: true
+  tasks:
+  - name: Install packages
+    apt:
+      pkg:
+        - borgbackup 
+      state: latest
+      update_cache: true
+
+# - hosts: test
+#   become: true
+#   tasks:
+
+#   - name: Test command
+#     shell: lsblk | grep /dev/sdb1 || echo "no"
+#     register: lsblk_out
+#     ignore_errors: true
+
+#   - name: Create a new primary partition
+#     parted:
+#       device: /dev/sdc
+#       number: 1
+#       state: present
+#     when: lsblk_out.stdout == "no"
+
+#   - name: Format partition 
+#     filesystem:
+#       fstype: ext4
+#       dev: /dev/sdc1
+#     when: lsblk_out.stdout == "no"
+
+#   - name: Get partition UUID
+#     command: lsblk /dev/sdc1 -no UUID
+#     register: sdc_uuid
+
+#   - name: Mount partition 
+#     mount:
+#       path: /var/backup
+#       src: /dev/sdc1
+#       fstype: ext4
+#       opts: defaults
+#       state: mounted
+#     when: lsblk_out.stdout == "no"
+  
+#   - name: Add to fstab
+#     lineinfile:
+#       path: /etc/fstab
+#       line: UUID={{ sdc_uuid.stdout }} /var/backup ext4 defaults 0 0
+#     when: lsblk_out.stdout == "no"
+  
+
+- hosts: client
+  vars:
+    backup_host: 192.168.57.15
+    backup_password: 12345678
+
+  become: true
+  tasks:
+  - name: Create .ssh directory
+    file:
+      path: /root/.ssh
+      state: directory
+      owner: root
+      group: root
+      mode: 0700
+  - name: Copy private SSH key
+    copy:
+      src: files/ssh/key
+      dest: /root/.ssh/
+      owner: root
+      group: root
+      mode: 0600
+  - name: Copy public SSH key
+    copy:
+      src: files/ssh/key.pub
+      dest: /root/.ssh/
+      owner: root
+      group: root
+      mode: 0644
+  
+  - name: Set default identity
+    shell: echo "IdentityFile /root/.ssh/key" > /root/.ssh/config
+  
+  - name: Add known_hosts
+    shell: ssh-keyscan -H {{ backup_host }} > /root/.ssh/known_hosts
+
+  - name: Generate Unit files
+    template: 
+      src: "{{ item.src }}" 
+      dest: "{{ item.dest }}"
+      owner: root
+      group: root
+      mode: 0640
+    loop:
+      - src: /vagrant/files/units/borg-run.service.j2
+        dest: /etc/systemd/system/borg-run.service
+      - src: /vagrant/files/units/borg-run.timer.j2
+        dest: /etc/systemd/system/borg-run.timer
+      - src: /vagrant/files/units/borg-prune.service.j2
+        dest: /etc/systemd/system/borg-prune.service
+      - src: /vagrant/files/units/borg-prune.timer.j2
+        dest: /etc/systemd/system/borg-prune.timer
+  
+  - name: Reload systemd
+    systemd:
+      daemon_reload: true
+  
+  - name: Borg backup timer service 
+    systemd:
+      name: borg-run.timer
+      enabled: true
+      state: restarted
+  
+  - name: Borg backup timer service 
+    systemd:
+      name: borg-prune.timer
+      enabled: true
+      state: restarted
+  
+  - name: Borg init 
+    shell: BORG_PASSPHRASE={{ backup_password }} borg init --encryption=repokey borg@{{ backup_host }}:/var/backup/
+
+- hosts: server
+  become: true
+  tasks:
+  - name: Create borg user
+    user:
+      name: borg
+      shell: /bin/bash
+      home: /home/borg
+      createhome: yes
+      state: present
+
+  - name: Test command
+    shell: lsblk | grep /dev/sdb1 || echo "no"
+    register: lsblk_out
+    ignore_errors: true
+
+  - name: Create a new primary partition
+    parted:
+      device: /dev/sdc
+      number: 1
+      state: present
+    when: lsblk_out.stdout == "no"
+
+  - name: Format partition 
+    filesystem:
+      fstype: ext4
+      dev: /dev/sdc1
+    when: lsblk_out.stdout == "no"
+
+  - name: Get partition UUID
+    command: lsblk /dev/sdc1 -no UUID
+    register: sdc_uuid
+
+  - name: Mount partition 
+    mount:
+      path: /var/backup
+      src: /dev/sdc1
+      fstype: ext4
+      opts: defaults
+      state: mounted
+    when: lsblk_out.stdout == "no"
+  
+  - name: Add to fstab
+    lineinfile:
+      path: /etc/fstab
+      line: UUID={{ sdc_uuid.stdout }} /var/backup ext4 defaults 0 0
+    when: lsblk_out.stdout == "no"
+
+  - name: Create .ssh directory
+    file:
+      path: /home/borg/.ssh
+      state: directory
+      owner: borg
+      group: borg
+      mode: 0700
+
+  - name: Copy public SSH key
+    copy:
+      src: /vagrant/files/ssh/key.pub
+      dest: /home/borg/.ssh/authorized_keys
+      owner: borg
+      group: borg
+      mode: 0600
+
+  - name: Create backup directory
+    file:
+      path: /var/backup
+      state: directory
+      owner: borg
+      group: borg
+      mode: 0700
