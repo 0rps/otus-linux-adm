@@ -1,0 +1,63 @@
+- hosts: inetRouter
+  become: true
+  tasks:
+  - name: install ifupdown (needed for iptables_restore)
+    apt:
+      name: ifupdown
+      state: present
+      update_cache: yes
+  - name: disable ufw
+    service:
+      name: ufw
+      state: stopped
+      enabled: no
+  - name: Set up NAT on inetRouter
+    template: 
+      src: "{{ item.src }}"
+      dest: "{{ item.dest }}"
+      owner: root
+      group: root
+      mode: "{{ item.mode }}"
+    with_items:
+      - { src: "/vagrant/files/inetRouter/iptables_rules.ipv4", dest: "/etc/iptables_rules.ipv4", mode: "0644" }
+      - { src: "/vagrant/files/inetRouter/iptables_restore", dest: "/etc/network/if-pre-up.d/iptables", mode: "0755" }
+  - name: apply iptables rules
+    command: iptables-restore < /etc/iptables_rules.ipv4
+  - name: set up forward packages across routers
+    sysctl:
+      name: net.ipv4.conf.all.forwarding
+      value: '1'
+      state: present
+
+- hosts: routers
+  tasks:
+  - name: set up forward packages across routers
+    sysctl:
+      name: net.ipv4.conf.all.forwarding
+      value: '1'
+      state: present
+
+- hosts: all
+  tasks:
+  - name: install packages (traceroute)
+    apt:
+      name: traceroute
+      state: present
+      update_cache: yes
+  - name: disable default route
+    template: 
+      src: /vagrant/files/00-installer-config.yaml
+      dest: /etc/netplan/00-installer-config.yaml
+      owner: root
+      group: root
+      mode: 0600
+    when: ansible_hostname != "inetRouter"
+  - name: add default gateway
+    template: 
+      src: "/vagrant/files/50-vagrant_{{ansible_hostname}}.yaml"
+      dest: /etc/netplan/50-vagrant.yaml
+      owner: root
+      group: root
+      mode: 0600
+  - name: apply netplan
+    command: netplan apply
