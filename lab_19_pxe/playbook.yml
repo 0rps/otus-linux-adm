@@ -1,0 +1,113 @@
+# install apache2 and copy files that must be served via http
+- hosts: all
+  tasks:
+  - name: mkdir for serving files via http 
+    file:
+      path: /iso
+      state: directory
+      mode: 0755
+  - name: copy image and autoinstall config
+    copy:
+      src: /vagrant/files/ubuntu-2204-server.iso
+      dest: /iso/server.iso
+      mode: 0644
+  - name: copy autoinstall config
+    copy:
+      src: /vagrant/files/user-data
+      dest: /iso/user-data
+      mode: 0644
+  - name: install apache2
+    apt:
+      name: apache2
+      state: present
+      update_cache: yes
+  - name: copy apache config
+    copy:
+      src: /vagrant/files/apache2.conf
+      dest: /etc/apache2/apache2.conf
+      mode: 0644
+  - name: restart apache2
+    service:
+      name: apache2
+      enabled: yes
+      state: restarted
+
+# install and configure dhcp
+- hosts: all
+  tasks:
+  - name: install packages (isc-dhcp-server)
+    apt:
+      name: isc-dhcp-server
+      state: present
+      update_cache: yes
+  - name: copy dhcp config
+    copy:
+      src: /vagrant/files/dhcpd.conf
+      dest: /etc/dhcp/dhcpd.conf
+      mode: 0644
+  - name: restart dhcp
+    service:
+      name: isc-dhcp-server
+      enabled: yes
+      state: restarted
+
+# install tftp and copy files needed for PXE boot
+- hosts: all
+  tasks:
+  - name: install packages (tftpd-hpa)
+    apt:
+      pkg:
+        - tftpd-hpa 
+        - pxelinux
+        - syslinux
+      state: latest
+      update_cache: true
+  - name: Copy syslinux modules
+    copy: 
+      src: "/usr/lib/syslinux/modules/bios/{{ item.name }}" 
+      dest: "/srv/tftp/{{ item.name }}"
+      owner: root
+      group: root
+      mode: 0644
+    loop:
+      - name: ldlinux.c32
+      - name: libmenu.c32
+      - name: libutil.c32
+      - name: menu.c32
+      - name: vesamenu.c32
+  - name: Copy pxelinux module
+    copy:
+      src: /usr/lib/PXELINUX/pxelinux.0
+      dest: /srv/tftp/pxelinux.0
+      owner: root
+      group: root
+      mode: 0644
+  - name: mount iso
+    mount:
+      path: /mnt
+      src: /iso/server.iso
+      fstype: iso9660
+      opts: loop
+      state: mounted
+  - name: Copy kernel and initrd
+    copy: 
+      src: "/mnt/casper/{{ item.name }}" 
+      dest: "/srv/tftp/{{ item.name }}"
+      owner: root
+      group: root
+      mode: 0644
+    loop:
+      - name: vmlinuz
+      - name: initrd
+  - name: Create folder for PXE config
+    file:
+      path: /srv/tftp/pxelinux.cfg
+      state: directory
+      mode: 0755
+  - name: Copy PXE config
+    copy:
+      src: /vagrant/files/pxelinux.cfg
+      dest: /srv/tftp/pxelinux.cfg/default
+      owner: root
+      group: root
+      mode: 0644

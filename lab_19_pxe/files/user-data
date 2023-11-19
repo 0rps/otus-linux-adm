@@ -1,0 +1,128 @@
+#cloud-config
+autoinstall:
+  apt:
+    disable_components: []
+    fallback: abort
+    geoip: true
+    mirror-selection:
+      primary:
+      - country-mirror
+      - arches:
+        - amd64
+        - i386
+        uri: http://archive.ubuntu.com/ubuntu
+      - arches:
+        - s390x
+        - arm64
+        - armhf
+        - powerpc
+        - ppc64el
+        - riscv64
+        uri: http://ports.ubuntu.com/ubuntu-ports
+    preserve_sources_list: false
+  codecs:
+    install: false
+  drivers:
+    install: false
+  identity:
+    hostname: otushost
+    password: $6$zLg6VOj/K.iQTpVf$sbIJXgD8ZroBdBSiiKnAHzpIluRDtW1hiyyZW0i6/qMwrzO9ccGyhHtg2VyN2Ti2kDLsnnVi4vCiDsinaJDhL/
+    realname: otus
+    username: otus
+  kernel:
+    package: linux-generic
+  keyboard:
+    layout: us
+    toggle: null
+    variant: ''
+  locale: en_US.UTF-8
+  network:
+    ethernets:
+      enp0s3:
+        critical: true
+        dhcp-identifier: mac
+        dhcp4: true
+      enp0s8:
+        dhcp4: true
+    version: 2
+  source:
+    id: ubuntu-server-minimal
+    search_drivers: false
+  ssh:
+    allow-pw: true
+    authorized-keys: []
+    install-server: true
+  storage:
+    config:
+    - ptable: gpt
+      path: /dev/sda
+      wipe: superblock-recursive
+      preserve: false
+      name: ''
+      grub_device: true
+      type: disk
+      id: disk-sda
+    - device: disk-sda
+      size: 1048576
+      flag: bios_grub
+      number: 1
+      preserve: false
+      grub_device: false
+      offset: 1048576
+      path: /dev/sda1
+      type: partition
+      id: partition-0
+    - device: disk-sda
+      size: 2147483648
+      wipe: superblock
+      number: 2
+      preserve: false
+      grub_device: false
+      offset: 2097152
+      path: /dev/sda2
+      type: partition
+      id: partition-1
+    - fstype: ext4
+      volume: partition-1
+      preserve: false
+      type: format
+      id: format-0
+    - device: disk-sda
+      size: 40799043584
+      wipe: superblock
+      number: 3
+      preserve: false
+      grub_device: false
+      offset: 2149580800
+      path: /dev/sda3
+      type: partition
+      id: partition-2
+    - name: ubuntu-vg
+      devices:
+      - partition-2
+      preserve: false
+      type: lvm_volgroup
+      id: lvm_volgroup-0
+    - name: ubuntu-lv
+      volgroup: lvm_volgroup-0
+      size: 20396900352B
+      wipe: superblock
+      preserve: false
+      path: /dev/ubuntu-vg/ubuntu-lv
+      type: lvm_partition
+      id: lvm_partition-0
+    - fstype: ext4
+      volume: lvm_partition-0
+      preserve: false
+      type: format
+      id: format-1
+    - path: /
+      device: format-1
+      type: mount
+      id: mount-1
+    - path: /boot
+      device: format-0
+      type: mount
+      id: mount-0
+  updates: security
+  version: 1
