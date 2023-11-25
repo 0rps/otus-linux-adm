@@ -67,7 +67,9 @@
   tasks:
   - name: install ifupdown (needed for iptables_restore)
     apt:
-      name: ifupdown
+      pkg:
+        - ifupdown 
+        - nmap
       state: present
       update_cache: yes
   - name: Configure iptables

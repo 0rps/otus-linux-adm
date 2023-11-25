@@ -37,7 +37,7 @@ MACHINES = {
                 {ip: "192.168.2.193",   adapter: 6,  netmask: "255.255.255.192",  virtualbox__intnet: "office1-net"},
                 #["192.168.50.20",   8,  "255.255.255.0"],
             ]
-  },
+    },
 
   :office1Server => {
     :net => [
