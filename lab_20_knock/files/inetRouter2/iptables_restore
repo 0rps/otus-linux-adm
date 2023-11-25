@@ -1,0 +1,5 @@
+#!/bin/sh
+
+IP=`ip addr show enp0s3 | grep "inet " | cut -f 1 -d '/' | awk '{ print $2 }'`
+cat /etc/iptables_rules.ipv4 | sed "s/IP_ADDR_TPL/$IP/g" | iptables-restore
+

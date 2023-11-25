@@ -1,0 +1,140 @@
+- hosts: inetRouter
+  become: true
+  tasks:
+  - name: install ifupdown (needed for iptables_restore)
+    apt:
+      name: ifupdown
+      state: present
+      update_cache: yes
+  - name: Configure iptables
+    template: 
+      src: "{{ item.src }}"
+      dest: "{{ item.dest }}"
+      owner: root
+      group: root
+      mode: "{{ item.mode }}"
+    with_items:
+      - { src: "/vagrant/files/{{ansible_hostname}}/iptables_rules.ipv4", dest: "/etc/iptables_rules.ipv4", mode: "0644" }
+      - { src: "/vagrant/files/{{ansible_hostname}}/iptables_restore", dest: "/etc/network/if-pre-up.d/iptables", mode: "0755" }
+  - name: apply iptables rules
+    command: "/etc/network/if-pre-up.d/iptables"
+  - name: set up forward packages across routers
+    sysctl:
+      name: net.ipv4.conf.all.forwarding
+      value: '1'
+      state: present
+  - name: Create .ssh directory
+    file:
+      path: /home/root/.ssh
+      state: directory
+      owner: root
+      group: root
+      mode: 0700
+  - name: Copy public SSH key
+    copy:
+      src: /vagrant/files/ssh/knock.pub
+      dest: /root/.ssh/authorized_keys
+      owner: root
+      group: root
+      mode: 0600
+- hosts: inetRouter2
+  become: true
+  tasks:
+  - name: install ifupdown (needed for iptables_restore)
+    apt:
+      name: ifupdown
+      state: present
+      update_cache: yes
+  - name: Configure iptables
+    template: 
+      src: "{{ item.src }}"
+      dest: "{{ item.dest }}"
+      owner: root
+      group: root
+      mode: "{{ item.mode }}"
+    with_items:
+      - { src: "/vagrant/files/{{ansible_hostname}}/iptables_rules.ipv4", dest: "/etc/iptables_rules.ipv4", mode: "0644" }
+      - { src: "/vagrant/files/{{ansible_hostname}}/iptables_restore", dest: "/etc/network/if-pre-up.d/iptables", mode: "0755" }
+  - name: apply iptables rules
+    command: "/etc/network/if-pre-up.d/iptables"
+  - name: set up forward packages across routers
+    sysctl:
+      name: net.ipv4.conf.all.forwarding
+      value: '1'
+      state: present
+- hosts: centralRouter
+  become: true
+  tasks:
+  - name: install ifupdown (needed for iptables_restore)
+    apt:
+      name: ifupdown
+      state: present
+      update_cache: yes
+  - name: Configure iptables
+    template: 
+      src: "{{ item.src }}"
+      dest: "{{ item.dest }}"
+      owner: root
+      group: root
+      mode: "{{ item.mode }}"
+    with_items:
+      - { src: "/vagrant/files/{{ansible_hostname}}/iptables_rules.ipv4", dest: "/etc/iptables_rules.ipv4", mode: "0644" }
+      - { src: "/vagrant/files/{{ansible_hostname}}/iptables_restore", dest: "/etc/network/if-pre-up.d/iptables", mode: "0755" }
+  - name: disable default route
+    template: 
+      src: /vagrant/files/00-installer-config.yaml
+      dest: /etc/netplan/00-installer-config.yaml
+      owner: root
+      group: root
+      mode: 0600
+  - name: apply iptables rules
+    command: "/etc/network/if-pre-up.d/iptables"
+  - name: set up forward packages across routers
+    sysctl:
+      name: net.ipv4.conf.all.forwarding
+      value: '1'
+      state: present
+  - name: Create .ssh directory
+    file:
+      path: /root/.ssh
+      state: directory
+      owner: root
+      group: root
+      mode: 0700
+  - name: Copy private SSH key
+    copy:
+      src: /vagrant/files/ssh/knock
+      dest: /root/.ssh/
+      owner: root
+      group: root
+      mode: 0600
+- hosts: centralServer
+  become: true
+  tasks:
+  - name: install nginx and nmap
+    apt:
+      pkg:
+        - nginx 
+        - nmap
+      state: present
+      update_cache: yes
+  - name: disable default route
+    template: 
+      src: /vagrant/files/00-installer-config.yaml
+      dest: /etc/netplan/00-installer-config.yaml
+      owner: root
+      group: root
+      mode: 0600
+
+- hosts: all
+  become: true
+  tasks:
+  - name: add netplan
+    template: 
+      src: "/vagrant/files/50-vagrant_{{ansible_hostname}}.yaml"
+      dest: /etc/netplan/50-vagrant.yaml
+      owner: root
+      group: root
+      mode: 0600
+  - name: apply netplan
+    command: netplan apply

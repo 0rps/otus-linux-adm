@@ -1,0 +1,67 @@
+# -*- mode: ruby -*-
+# vim: set ft=ruby :
+
+MACHINES = {
+  :inetRouter => {
+    :net => [
+      {ip: '192.168.10.1', adapter: 2, netmask: "255.255.255.0", virtualbox__intnet: "router-net"},
+    ]
+  },
+
+  :inetRouter2 => {
+    :net => [
+      {ip: '192.168.20.1', adapter: 2, netmask: "255.255.255.0", virtualbox__intnet: "router2-net"},
+    ],
+    :forwarding => {
+      :host => 8080, 
+      :guest => 8080
+    },
+  },
+
+  :centralRouter => {
+    :tag => "routers",
+    :net => [
+      {ip: '192.168.10.2',  adapter: 2, netmask: "255.255.255.0", virtualbox__intnet: "router-net"},
+      {ip: '192.168.20.2',  adapter: 3, netmask: "255.255.255.0", virtualbox__intnet: "router2-net"},
+      {ip: '192.168.100.1', adapter: 4, netmask: "255.255.255.0", virtualbox__intnet: "central-net"},
+    ],
+  },
+  
+  :centralServer => {
+    :net => [
+      {ip: "192.168.100.2", adapter: 2, netmask: "255.255.255.0",  virtualbox__intnet: "central-net"},
+    ]
+  },
+}
+
+Vagrant.configure("2") do |config|
+
+  MACHINES.each do |boxname, boxconfig|
+    config.vm.define boxname do |box|
+
+        box.vm.box = "ubuntu/mantic64"
+        box.vm.host_name = boxname.to_s
+
+        boxconfig[:net].each do |ipconf|
+          box.vm.network "private_network", **ipconf
+        end
+        
+        if boxconfig.key?(:forwarding)
+          box.vm.network "forwarded_port", guest: boxconfig[:forwarding][:guest], host: boxconfig[:forwarding][:host]
+        end
+
+        ansible_tag = boxname.to_s
+        box.vm.provision "shell", inline: <<-SHELL
+          apt-get update
+          apt-get install ansible -y  
+
+          cd /vagrant
+          ansible-playbook -i="#{ansible_tag}," -c local ./playbook.yml
+
+        SHELL
+      end
+
+  end
+  
+  
+end
