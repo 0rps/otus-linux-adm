@@ -1,0 +1,45 @@
+
+frr version 8.1
+frr defaults traditional
+!Указываем имя машины
+hostname {{ ansible_hostname }}
+log syslog informational
+no ipv6 forwarding
+service integrated-vtysh-config
+interface enp0s8
+ description {{ ospf['if']['s8']['description'] }}
+ ip address {{ ospf['if']['s8']['address'] }}
+ ip ospf mtu-ignore
+{% if ansible_hostname == 'router1' %}
+ ip ospf cost 1000
+{% elif ansible_hostname == 'router2' and symmetric_routing %}
+ ip ospf cost 1000
+{% else %}
+ !ip ospf cost 450
+{% endif %}
+ ip ospf hello-interval 10
+ ip ospf dead-interval 30
+interface enp0s9
+ description {{ ospf['if']['s9']['description'] }}
+ ip address {{ ospf['if']['s9']['address'] }}
+ ip ospf mtu-ignore
+ !ip ospf cost 45
+ ip ospf hello-interval 10
+ ip ospf dead-interval 30
+interface enp0s10
+ description {{ ospf['if']['s10']['description'] }}
+ ip address {{ ospf['if']['s10']['address'] }}
+ ip ospf mtu-ignore
+ !ip ospf cost 45
+ ip ospf hello-interval 10
+ ip ospf dead-interval 30 
+router ospf
+ router-id {{ ospf['rid'] }}
+ network {{ ospf['if']['s8']['subnet'] }} area {{ ospf['area'] }}
+ network {{ ospf['if']['s9']['subnet'] }} area {{ ospf['area'] }}
+ network {{ ospf['if']['s10']['subnet'] }} area {{ ospf['area'] }}
+ neighbor {{ ospf['if']['s8']['neighbor'] }}
+ neighbor {{ ospf['if']['s9']['neighbor'] }}
+
+log file /var/log/frr/frr.log
+default-information originate always

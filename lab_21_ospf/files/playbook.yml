@@ -1,0 +1,52 @@
+- name: OSPF
+  hosts: all
+  become: true
+  vars_files:
+    - vars/defaults.yml
+    - vars/{{ ansible_hostname }}.yml
+  tasks:
+  - name: install base tools
+    apt:
+      name:
+        - vim
+        - traceroute
+        - tcpdump
+        - net-tools
+        - mc
+        - frr
+        - frr-pythontools
+      state: present
+      update_cache: true
+  - name: disable ufw service
+    service:
+      name: ufw
+      state: stopped
+      enabled: false
+  - name: set up forward packages across routers
+    sysctl:
+      name: net.ipv4.conf.all.forwarding
+      value: '1'
+      state: present
+  - name: base set up OSPF 
+    template:
+      src: daemons.conf
+      dest: /etc/frr/daemons
+      owner: frr
+      group: frr
+      mode: 0640
+  - name: set up OSPF 
+    template:
+      src: template/frr.conf.j2
+      dest: /etc/frr/frr.conf
+      owner: frr
+      group: frr
+      mode: 0640
+    tags:
+      - setup_ospf
+  - name: restart FRR
+    service:
+      name: frr
+      state: restarted
+      enabled: true
+    tags:
+      - setup_ospf
