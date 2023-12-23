@@ -1,0 +1,61 @@
+---
+- hosts: all
+  become: true
+  tasks:
+  - name: Install packages (bind9)
+    apt:
+      pkg:
+      - bind9
+      - bind9-utils
+      - vim
+      - mc
+      state: latest
+      update_cache: true
+  - name: Copy transferkey to all servers and the client
+    copy: src=named.zonetransfer.key dest=/etc/bind/named.zonetransfer.key owner=root group=bind mode=0644
+
+- hosts: ns01
+  become: true
+  tasks:
+  - name: Copy named.conf
+    copy: src=ns01/named.conf dest=/etc/bind/named.conf owner=root group=bind mode=0640
+  - name: Copy zones
+    copy: src={{ item }} dest=/etc/bind/ owner=root group=bind mode=0660
+    with_fileglob:
+      - ns01/named.d*
+  - name: Copy zonetransfer.key
+    copy: src=named.zonetransfer.key dest=/etc/bind/named.zonetransfer.key owner=root group=bind mode=0640
+  - name: copy resolv.conf to the servers
+    template: src=servers-resolv.conf.j2 dest=/etc/resolv.conf owner=root group=root mode=0644
+  - name: Set /etc/bind permissions
+    file: path=/etc/bind owner=root group=bind mode=0670
+  - name: Create working directory
+    file: path=/var/bind state=directory owner=root group=bind mode=0775
+  - name: Ensure named service is running and enabled
+    service: name=named state=restarted enabled=yes
+
+- hosts: ns02
+  become: true
+  tasks:
+  - name: Copy named.conf
+    copy: src=ns02/named.conf dest=/etc/bind/named.conf owner=root group=bind mode=0640
+  - name: Copy named.conf (2nd part)
+    copy: src=named.zonetransfer.key dest=/etc/bind/named.zonetransfer.key owner=root group=bind mode=0640
+  - name: copy resolv.conf to the servers
+    template: src=servers-resolv.conf.j2 dest=/etc/resolv.conf owner=root group=root mode=0644
+  - name: Set /etc/bind permissions
+    file: path=/etc/bind owner=root group=bind mode=0670
+  - name: Create working directory
+    file: path=/var/bind state=directory owner=root group=bind mode=0775
+  - name: Ensure named service is running and enabled
+    service: name=named state=restarted enabled=yes
+    
+- hosts: client01
+  become: true
+  tasks:
+  - name: Copy resolv.conf to the client
+    copy: src=client01/resolv.conf dest=/etc/resolv.conf owner=root group=root mode=0644
+  - name: Copy rndc conf file
+    copy: src=client01/rndc.conf dest=/home/vagrant/rndc.conf owner=vagrant group=vagrant mode=0644
+  - name: Copy motd to the client
+    copy: src=client01/motd dest=/etc/motd owner=root group=root mode=0644
