@@ -79,16 +79,15 @@ conninfo              | user=replication password=******** channel_binding=prefe
 
 ### Резервное копирование с помощью `barman`
 
-**NOTE** небольшое отступление от инструкции задания, WAL archiving не настроено на `node1`, т.к. решил воспользоваться [Scenario 1](https://docs.pgbarman.org/release/3.9.0/#streaming-backup-vs-rsyncssh) в `Two typical scenarios for backups`.
-
 В данной части оперировать будем над `node1` и `barman` хостами.
 
 Описание:
 * (barman) Установим `barman`
 * (barman) Сгенерируем SSH ключ для `barman` пользователя и добавим public часть на `node1`
 * (barman) Настроим `barman` утилиту для возможности использования `postgresql` `replication` протокола.
-* (node1) Создадим пользователя `barman` с правами SUPERUSER (т.к. данные права требуются для switch_wal и подобного рода операциях)
+* (node1) Создадим пользователя `barman` с правами SUPERUSER (т.к. данные права требуются для `switch_wal` и подобного рода операциях)
 * (node1) Добавим правило для возможности подключения к PostgreSQL с `barman` хоста в pg_hba
+* (node1) Также настроим `archive_command` для копирования WAL файлов после из финализации на хост с `barman`
 * (node1) Сгенерируем SSH ключ для `postgres` пользователя и добавим public часть на `barman`
 
 **Ansible file для node1**: [file](./provisioning/roles/barman_pg/tasks/main.yaml)
