@@ -1,0 +1,33 @@
+---
+- name: PostgreSQL | Install PostgreSQL
+  apt:
+    pkg:
+      - postgresql
+      - python3-psycopg2
+    state: latest
+    update_cache: yes
+- name: Stop postgresql service
+  systemd:
+    name: postgresql
+    state: stopped
+    enabled: no
+- name: Remove postgresql data directory
+  file:
+    path: /var/lib/postgresql/15/main
+    state: absent
+- name: Copy postgresql data directory from master
+  become_user: postgres
+  expect: 
+    command: 'pg_basebackup -h {{ master_ip }} -p 5432 -U {{ postgres_user }} -D /var/lib/postgresql/15/main -P -R'
+    responses:
+      '.*Password*': "{{ postgres_password }}"
+- name: "Add replication user access from slave"
+  lineinfile:
+    line: "host\treplication\t{{ postgres_user }}\t{{ slave_ip }}/32\tscram-sha-256"
+    dest: "/etc/postgresql/15/main/pg_hba.conf"
+- name: Copy postgresql.conf
+  template:
+    src: templates/postgresql.conf.j2
+    dest: /etc/postgresql/15/main/postgresql.conf
+  notify:
+    - restart_postgresql

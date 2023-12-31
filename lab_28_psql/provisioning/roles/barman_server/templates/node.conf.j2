@@ -1,0 +1,14 @@
+[{{ postgres_hostname }}]
+description = "backup {{ postgres_hostname }}"
+ssh_command = ssh postgres@{{ postgres_host_ip }} 
+conninfo = host={{ postgres_host_ip }} user={{ postgres_user }} port=5432 dbname=postgres
+retention_policy_mode = auto
+retention_policy = RECOVERY WINDOW OF 7 days
+wal_retention_policy = main
+streaming_archiver=on
+
+create_slot = auto
+slot_name = {{ postgres_hostname }}
+streaming_conninfo = host={{ postgres_host_ip }} user={{ postgres_user }} 
+backup_method = postgres
+archiver = off

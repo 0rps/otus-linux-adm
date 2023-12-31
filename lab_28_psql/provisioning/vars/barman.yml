@@ -1,0 +1,7 @@
+postgres_hostname: 'node1'
+postgres_host_ip: 192.168.57.11
+postgres_user: 'barman'
+postgres_password: 'Otus2023!'
+
+barman_hostname: 'barman'
+barman_host_ip: 192.168.57.13

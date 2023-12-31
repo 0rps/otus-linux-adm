@@ -1,0 +1,28 @@
+---
+- name: PostgreSQL | Install PostgreSQL
+  apt:
+    pkg:
+      - postgresql
+      - python3-psycopg2
+    state: latest
+    update_cache: yes
+- name: Create postgresql user for replication
+  become_user: postgres
+  postgresql_user:
+    name: "{{ postgres_user }}"
+    password: "{{ postgres_password }}"
+    role_attr_flags: REPLICATION
+- name: "Add replication user access from master"
+  lineinfile:
+    line: "host\treplication\t{{ postgres_user }}\t{{ master_ip }}/32\tscram-sha-256"
+    dest: "/etc/postgresql/15/main/pg_hba.conf"
+- name: "Add replication user access from slave"
+  lineinfile:
+    line: "host\treplication\t{{ postgres_user }}\t{{ slave_ip }}/32\tscram-sha-256"
+    dest: "/etc/postgresql/15/main/pg_hba.conf"
+- name: Copy postgresql.conf
+  template:
+    src: templates/postgresql.conf.j2
+    dest: /etc/postgresql/15/main/postgresql.conf
+  notify:
+    - restart_postgresql

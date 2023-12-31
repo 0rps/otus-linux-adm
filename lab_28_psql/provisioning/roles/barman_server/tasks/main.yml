@@ -1,0 +1,48 @@
+---
+- name: install barman
+  apt:
+    pkg:
+      - barman
+      - barman-cli
+    state: latest
+    update_cache: yes
+- name: generate SSH key for barman
+  user:
+    name: barman
+    shell: /bin/bash
+    generate_ssh_key: yes
+    ssh_key_type: rsa
+    ssh_key_bits: 4096
+    force: no
+- name: fetch barman public ssh key
+  shell: cat /var/lib/barman/.ssh/id_rsa.pub
+  register: ssh_keys
+- name: transfer public key to pg
+  delegate_to: "{{ postgres_hostname }}"
+  authorized_key:
+    key: "{{ ssh_keys.stdout }}"
+    comment: "{{ ansible_hostname }}"
+    user: postgres
+- name: copy .pgpass
+  template:
+    src: templates/.pgpass.j2
+    dest: /var/lib/barman/.pgpass
+    owner: barman
+    group: barman
+    mode: '0600'
+
+- name: copy barman.conf
+  template:
+    src: templates/barman.conf.j2
+    dest: /etc/barman.conf 
+    owner: barman
+    group: barman
+    mode: '0755'
+
+- name: generate node.conf
+  template:
+    src: templates/node.conf.j2
+    dest: "/etc/barman.d/{{ postgres_hostname }}.conf"
+    owner: barman
+    group: barman
+    mode: '0755'

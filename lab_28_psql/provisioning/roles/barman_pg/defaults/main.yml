@@ -1,0 +1,4 @@
+---
+barman_host_ip: 192.168.57.13
+postgres_password: 'Otus2023!'
+postgres_user: 'barman'

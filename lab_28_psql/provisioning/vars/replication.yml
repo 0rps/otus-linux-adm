@@ -1,0 +1,4 @@
+master_ip: 192.168.57.11
+slave_ip: 192.168.57.12
+postgres_password: 'Otus2023!'
+postgres_user: 'replication'

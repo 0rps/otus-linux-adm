@@ -1,0 +1,57 @@
+---
+- hosts: all
+  become: true
+  tasks:
+    # fixes an issue with chmod usage in "become_user"
+    - name: "apt update and install acl"
+      apt:
+        pkg:
+          - acl
+        update_cache: yes
+
+# - hosts: node1
+#   vars_files: [ "vars/replication.yml" ]
+#   become: true
+#   roles: ["postgres_master"]
+
+# - hosts: node2
+#   become: true
+#   vars_files: [ "vars/replication.yml" ]
+#   roles: ["postgres_slave"]
+
+- hosts: barman
+  become: true
+  vars_files: [ "vars/barman.yml" ]
+  roles: ["barman_server"]
+
+# - hosts: node1
+#   become: true
+#   vars_files: [ "vars/barman.yml" ]
+#   roles: ["barman_pg"]
+
+- hosts: node1
+  become: true
+  vars_files: [ "vars/barman.yml" ]
+  tasks:
+  # - name: "configure archive_command"
+  #   lineinfile:
+  #     line: "archive_command = 'rsync -a %p barman@{{ barman_host_ip }}:/var/lib/barman/{{ ansible_hostname }}/wals/%f'"
+  #     dest: "/etc/postgresql/15/main/postgresql.conf"
+  # - name: "configure archive_mode"
+  #   lineinfile:
+  #     line: "archive_mode = on"
+  #     dest: "/etc/postgresql/15/main/postgresql.conf"
+  # - name: restart_postgresql
+  #   systemd:
+  #     name: postgresql
+  #     state: restarted
+  #     enabled: yes
+  - name: fetch postgres public ssh key
+    shell: cat /var/lib/postgresql/.ssh/id_rsa.pub
+    register: ssh_keys
+  - name: transfer public key to barman
+    delegate_to: "{{ barman_hostname }}"
+    authorized_key:
+      key: "{{ ssh_keys.stdout }}"
+      comment: "{{ ansible_hostname }}"
+      user: barman
